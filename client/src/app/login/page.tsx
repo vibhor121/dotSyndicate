@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { setAuth } from '@/lib/auth';
@@ -13,25 +14,28 @@ export default function LoginPage() {
     email: '',
     password: '',
   });
-  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const response = await api.post('/auth/login', formData);
-      const { token, user } = response.data;
-
+  // React Query mutation for login
+  const loginMutation = useMutation({
+    mutationFn: async (credentials: { email: string; password: string }) => {
+      const response = await api.post('/auth/login', credentials);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const { token, user } = data;
       setAuth(token, user);
       toast.success('Login successful!');
       router.push('/');
-    } catch (error: any) {
+    },
+    onError: (error: any) => {
       const message = error.response?.data?.message || 'Login failed';
       toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+    },
+  });
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    loginMutation.mutate(formData);
   };
 
   return (
@@ -94,10 +98,10 @@ export default function LoginPage() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={loginMutation.isPending}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Signing in...' : 'Sign in'}
+              {loginMutation.isPending ? 'Signing in...' : 'Sign in'}
             </button>
           </div>
 

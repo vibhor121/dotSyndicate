@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import PropertyCard from '@/components/PropertyCard';
 import toast from 'react-hot-toast';
@@ -20,45 +21,41 @@ interface Property {
 }
 
 export default function HomePage() {
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [loading, setLoading] = useState(true);
   const [filters, setFilters] = useState({
     location: '',
     propertyType: '',
   });
 
-  useEffect(() => {
-    fetchProperties();
-  }, []);
-
-  const fetchProperties = async () => {
-    try {
+  // React Query handles loading, error, and data states automatically!
+  const { data: properties = [], isLoading: loading, error } = useQuery({
+    queryKey: ['properties', filters],
+    queryFn: async () => {
       const params = new URLSearchParams();
       if (filters.location) params.append('location', filters.location);
       if (filters.propertyType) params.append('propertyType', filters.propertyType);
 
       const response = await api.get(`/properties?${params.toString()}`);
-      setProperties(response.data.properties);
-    } catch (error: any) {
-      toast.error('Failed to load properties');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return response.data.properties;
+    },
+  });
+
+  // Show error toast if query fails
+  if (error) {
+    toast.error('Failed to load properties');
+  }
 
   const handleFilterChange = (key: string, value: string) => {
     setFilters({ ...filters, [key]: value });
   };
 
   const applyFilters = () => {
-    setLoading(true);
-    fetchProperties();
+    // No need to manually refetch! React Query automatically refetches when filters change
+    setFilters({ ...filters });
   };
 
   const clearFilters = () => {
+    // React Query will automatically refetch when filters are cleared
     setFilters({ location: '', propertyType: '' });
-    setLoading(true);
-    setTimeout(() => fetchProperties(), 100);
   };
 
   return (
@@ -143,7 +140,7 @@ export default function HomePage() {
               </h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {properties.map((property) => (
+              {properties.map((property: Property) => (
                 <PropertyCard key={property._id} property={property} />
               ))}
             </div>

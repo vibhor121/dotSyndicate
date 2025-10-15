@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
+import { useMutation } from '@tanstack/react-query';
 import Link from 'next/link';
 import api from '@/lib/api';
 import { setAuth } from '@/lib/auth';
@@ -15,7 +16,24 @@ export default function SignupPage() {
     password: '',
     confirmPassword: '',
   });
-  const [loading, setLoading] = useState(false);
+
+  // React Query mutation for signup
+  const signupMutation = useMutation({
+    mutationFn: async (signupData: { name: string; email: string; password: string }) => {
+      const response = await api.post('/auth/signup', signupData);
+      return response.data;
+    },
+    onSuccess: (data) => {
+      const { token, user } = data;
+      setAuth(token, user);
+      toast.success('Account created successfully!');
+      router.push('/');
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Signup failed';
+      toast.error(message);
+    },
+  });
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -30,25 +48,12 @@ export default function SignupPage() {
       return;
     }
 
-    setLoading(true);
-
-    try {
-      const response = await api.post('/auth/signup', {
-        name: formData.name,
-        email: formData.email,
-        password: formData.password,
-      });
-      const { token, user } = response.data;
-
-      setAuth(token, user);
-      toast.success('Account created successfully!');
-      router.push('/');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Signup failed';
-      toast.error(message);
-    } finally {
-      setLoading(false);
-    }
+    // Use React Query mutation instead of manual API call
+    signupMutation.mutate({
+      name: formData.name,
+      email: formData.email,
+      password: formData.password,
+    });
   };
 
   return (
@@ -146,10 +151,10 @@ export default function SignupPage() {
           <div>
             <button
               type="submit"
-              disabled={loading}
+              disabled={signupMutation.isPending}
               className="group relative w-full flex justify-center py-2 px-4 border border-transparent text-sm font-medium rounded-md text-white bg-primary-600 hover:bg-primary-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary-500 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? 'Creating account...' : 'Create account'}
+              {signupMutation.isPending ? 'Creating account...' : 'Create account'}
             </button>
           </div>
         </form>

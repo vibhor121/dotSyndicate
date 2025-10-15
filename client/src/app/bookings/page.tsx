@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useQuery } from '@tanstack/react-query';
 import api from '@/lib/api';
 import { getUser } from '@/lib/auth';
 import BookingCard from '@/components/BookingCard';
@@ -27,30 +28,29 @@ interface Booking {
 
 export default function BookingsPage() {
   const router = useRouter();
-  const [bookings, setBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
   const user = getUser();
 
   useEffect(() => {
     if (!user) {
       toast.error('Please login to view your bookings');
       router.push('/login');
-      return;
     }
+  }, [user, router]);
 
-    fetchBookings();
-  }, []);
-
-  const fetchBookings = async () => {
-    try {
+  // React Query automatically handles loading and data fetching
+  const { data: bookings = [], isLoading: loading, error } = useQuery({
+    queryKey: ['bookings'],
+    queryFn: async () => {
       const response = await api.get('/bookings/my-bookings');
-      setBookings(response.data.bookings);
-    } catch (error: any) {
-      toast.error('Failed to load bookings');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return response.data.bookings;
+    },
+    enabled: !!user, // Only fetch if user is logged in
+  });
+
+  // Show error toast if query fails
+  if (error) {
+    toast.error('Failed to load bookings');
+  }
 
   if (loading) {
     return (
@@ -88,7 +88,7 @@ export default function BookingsPage() {
           </div>
         ) : (
           <div className="space-y-6">
-            {bookings.map((booking) => (
+            {bookings.map((booking: Booking) => (
               <BookingCard key={booking._id} booking={booking} />
             ))}
           </div>

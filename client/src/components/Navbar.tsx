@@ -53,6 +53,18 @@ export default function Navbar() {
                   My Bookings
                 </Link>
               )}
+              {user && user.role === 'admin' && (
+                <Link
+                  href="/admin/bookings"
+                  className={`inline-flex items-center px-1 pt-1 text-sm font-medium ${
+                    pathname === '/admin/bookings'
+                      ? 'text-primary-600 border-b-2 border-primary-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  🛡️ Admin Dashboard
+                </Link>
+              )}
             </div>
           </div>
           <div className="flex items-center space-x-4">

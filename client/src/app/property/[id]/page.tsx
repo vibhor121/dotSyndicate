@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect, FormEvent } from 'react';
+import { useState, FormEvent } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useQuery, useMutation } from '@tanstack/react-query';
 import Image from 'next/image';
 import api from '@/lib/api';
 import { getUser } from '@/lib/auth';
@@ -24,9 +25,6 @@ interface Property {
 export default function PropertyDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const [property, setProperty] = useState<Property | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [bookingLoading, setBookingLoading] = useState(false);
   const [selectedImage, setSelectedImage] = useState(0);
   const [bookingData, setBookingData] = useState({
     checkIn: '',
@@ -34,23 +32,37 @@ export default function PropertyDetailsPage() {
     guests: 1,
   });
 
-  useEffect(() => {
-    if (params.id) {
-      fetchProperty();
-    }
-  }, [params.id]);
-
-  const fetchProperty = async () => {
-    try {
+  // React Query for fetching property data
+  const { data: property, isLoading: loading, error } = useQuery({
+    queryKey: ['property', params.id],
+    queryFn: async () => {
       const response = await api.get(`/properties/${params.id}`);
-      setProperty(response.data.property);
-    } catch (error: any) {
-      toast.error('Failed to load property details');
-      router.push('/');
-    } finally {
-      setLoading(false);
-    }
-  };
+      return response.data.property;
+    },
+    enabled: !!params.id,
+  });
+
+  // Show error and redirect if property fetch fails
+  if (error) {
+    toast.error('Failed to load property details');
+    router.push('/');
+  }
+
+  // React Query mutation for creating a booking
+  const bookingMutation = useMutation({
+    mutationFn: async (bookingInfo: { propertyId: string; checkIn: string; checkOut: string; guests: number }) => {
+      const response = await api.post('/bookings', bookingInfo);
+      return response.data;
+    },
+    onSuccess: () => {
+      toast.success('Booking created successfully!');
+      router.push('/bookings');
+    },
+    onError: (error: any) => {
+      const message = error.response?.data?.message || 'Booking failed';
+      toast.error(message);
+    },
+  });
 
   const handleBooking = async (e: FormEvent) => {
     e.preventDefault();
@@ -72,24 +84,13 @@ export default function PropertyDetailsPage() {
       return;
     }
 
-    setBookingLoading(true);
-
-    try {
-      await api.post('/bookings', {
-        propertyId: params.id,
-        checkIn: bookingData.checkIn,
-        checkOut: bookingData.checkOut,
-        guests: bookingData.guests,
-      });
-
-      toast.success('Booking created successfully!');
-      router.push('/bookings');
-    } catch (error: any) {
-      const message = error.response?.data?.message || 'Booking failed';
-      toast.error(message);
-    } finally {
-      setBookingLoading(false);
-    }
+    // Use React Query mutation instead of manual API call
+    bookingMutation.mutate({
+      propertyId: params.id as string,
+      checkIn: bookingData.checkIn,
+      checkOut: bookingData.checkOut,
+      guests: bookingData.guests,
+    });
   };
 
   const calculateNights = () => {
@@ -137,7 +138,7 @@ export default function PropertyDetailsPage() {
             />
           </div>
           <div className="p-4 flex space-x-2 overflow-x-auto">
-            {property.images.map((image, index) => (
+            {property.images.map((image: string, index: number) => (
               <button
                 key={index}
                 onClick={() => setSelectedImage(index)}
@@ -195,7 +196,7 @@ export default function PropertyDetailsPage() {
               <div>
                 <h2 className="text-xl font-semibold mb-4">Amenities</h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  {property.amenities.map((amenity, index) => (
+                  {property.amenities.map((amenity: string, index: number) => (
                     <div
                       key={index}
                       className="flex items-center px-3 py-2 bg-gray-50 rounded-md"
@@ -298,10 +299,10 @@ export default function PropertyDetailsPage() {
 
                 <button
                   type="submit"
-                  disabled={bookingLoading}
+                  disabled={bookingMutation.isPending}
                   className="w-full py-3 bg-primary-600 text-white rounded-md hover:bg-primary-700 transition disabled:opacity-50 disabled:cursor-not-allowed font-medium"
                 >
-                  {bookingLoading ? 'Booking...' : 'Book Now'}
+                  {bookingMutation.isPending ? 'Booking...' : 'Book Now'}
                 </button>
               </form>
             </div>
