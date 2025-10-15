@@ -1,0 +1,17 @@
+{
+  "name": "staywise",
+  "version": "1.0.0",
+  "description": "Full-stack property booking platform",
+  "scripts": {
+    "install:all": "cd server && npm install && cd ../client && npm install",
+    "seed": "cd server && npx ts-node src/seed.ts",
+    "dev:server": "cd server && npm run dev",
+    "dev:client": "cd client && npm run dev",
+    "build:server": "cd server && npm run build",
+    "build:client": "cd client && npm run build"
+  },
+  "keywords": ["property", "booking", "nextjs", "express", "mongodb"],
+  "author": "",
+  "license": "ISC"
+}
+
